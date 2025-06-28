@@ -1,43 +1,90 @@
-import requests, pandas as pd, pandas_ta as ta
-import telegram, time
+import requests
+import pandas as pd
+import pandas_ta as ta
+import telegram
+import time
 from datetime import datetime
 
+# === CONFIGURAÇÕES ===
 TOKEN = "7454567397:AAEbFH2XY1BXmQprKoyyU_0IuWVddtiZmMQ"
 CHAT_ID = "6877756288"
+INTERVAL = 900  # 15 minutos = 900 segundos
+
+# === LISTA DE MOEDAS ===
+MOEDAS = {
+    "BTCUSDT": "Bitcoin",
+    "ETHUSDT": "Ethereum",
+    "SOLUSDT": "Solana",
+    "BNBUSDT": "BNB",
+    "AVAXUSDT": "Avalanche",
+    "MATICUSDT": "Polygon",
+    "ADAUSDT": "Cardano",
+    "DOGEUSDT": "Dogecoin",
+    "XRPUSDT": "XRP",
+    "INJUSDT": "Injective",
+    "OPUSDT": "Optimism",
+    "ARBUSDT": "Arbitrum",
+    "PYTHUSDT": "Pyth Network",
+    "JUPUSDT": "Jupiter",
+    "TIAUSDT": "Celestia"
+}
+
 bot = telegram.Bot(token=TOKEN)
 
-INTERVAL = 3600  # 1 hora
+# === FUNÇÕES ===
 
-def get_klines(sym):
-    url = f"https://api.binance.com/api/v3/klines?symbol={sym}&interval=1h&limit=100"
-    df = pd.DataFrame(requests.get(url).json(), columns=list(range(12)))
+def get_klines(symbol):
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=15m&limit=100"
+    data = requests.get(url).json()
+    df = pd.DataFrame(data, columns=range(12))
     df['close'] = pd.to_numeric(df[4])
     return df
 
-def analyze(sym, name):
-    df = get_klines(sym)
-    df['rsi'] = ta.rsi(df['close'], 14)
-    df['ema9'] = ta.ema(df['close'], 9)
-    df['ema21'] = ta.ema(df['close'], 21)
+def analyze(symbol, name):
+    df = get_klines(symbol)
+    df['rsi'] = ta.rsi(df['close'], length=14)
+    df['ema9'] = ta.ema(df['close'], length=9)
+    df['ema21'] = ta.ema(df['close'], length=21)
+
     price = df['close'].iloc[-1]
     rsi = df['rsi'].iloc[-1]
-    e9, e21 = df['ema9'].iloc[-1], df['ema21'].iloc[-1]
+    ema9 = df['ema9'].iloc[-1]
+    ema21 = df['ema21'].iloc[-1]
 
-    trend = "🔄 Consolidação"
-    if e9 > e21 and rsi < 70: trend = "📈 ALTA"
-    elif e9 < e21 and rsi > 30: trend = "📉 BAIXA"
+    high = df['close'][-5:].max() * 1.01  # alvo = última alta +1%
+    low = df['close'][-5:].min() * 0.995  # stop = última baixa -0.5%
 
-    return f"{name} ${price:.2f} | RSI {rsi:.1f} | EMA9 {e9:.1f} / EMA21 {e21:.1f} — {trend}"
+    if ema9 > ema21 and rsi < 70:
+        tendencia = "📈 Alta"
+    elif ema9 < ema21 and rsi > 30:
+        tendencia = "📉 Baixa"
+    else:
+        tendencia = "🔄 Consolidação"
 
-def send_signal():
+    msg = (
+        f"{name} ({symbol})\n"
+        f"💰 Entrada: {price:.2f}\n"
+        f"🎯 Alvo (High): {high:.2f}\n"
+        f"🛑 Stop (Low): {low:.2f}\n"
+        f"📊 RSI: {rsi:.1f} | EMA9: {ema9:.1f} / EMA21: {ema21:.1f}\n"
+        f"🔎 Tendência: {tendencia}\n"
+    )
+    return msg
+
+def send_calls():
     now = datetime.now().strftime("%d/%m %H:%M")
-    msg = f"📊 CALL — {now}\n"
-    msg += analyze("BTCUSDT", "Bitcoin") + "\n"
-    msg += analyze("ETHUSDT", "Ethereum") + "\n"
-    msg += analyze("SOLUSDT", "Solana") + "\n"
-    bot.send_message(CHAT_ID, msg, parse_mode=telegram.ParseMode.MARKDOWN)
+    mensagem = f"📊 CALL DE MERCADO — {now}\n\n"
 
-if __name__ == "_main_":
+    for symbol, name in MOEDAS.items():
+        try:
+            mensagem += analyze(symbol, name) + "\n"
+        except Exception as e:
+            mensagem += f"⚠️ Erro com {name}: {e}\n"
+
+    bot.send_message(chat_id=CHAT_ID, text=mensagem, parse_mode=telegram.ParseMode.MARKDOWN)
+
+# === LOOP INFINITO ===
+if _name_ == "_main_":
     while True:
-        send_signal()
+        send_calls()
         time.sleep(INTERVAL)
