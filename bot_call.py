@@ -37,7 +37,7 @@ def send_signal():
     msg += analyze("SOLUSDT", "Solana") + "\n"
     bot.send_message(CHAT_ID, msg, parse_mode=telegram.ParseMode.MARKDOWN)
 
-if _name_ == "_main_":
+if __name__ == "_main_":
     while True:
         send_signal()
         time.sleep(INTERVAL)
