@@ -84,7 +84,7 @@ def send_calls():
     bot.send_message(chat_id=CHAT_ID, text=mensagem, parse_mode=telegram.ParseMode.MARKDOWN)
 
 # === LOOP INFINITO ===
-if _name_ == "_main_":
+if __name__ == "_main_":
     while True:
         send_calls()
         time.sleep(INTERVAL)
