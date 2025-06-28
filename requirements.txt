@@ -3,4 +3,4 @@ pandas_ta
 python-telegram-bot
 requests
 setuptools
-3.10.12
+
